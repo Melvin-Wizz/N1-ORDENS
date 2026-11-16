@@ -81,9 +81,22 @@
         .editor-title p { color: var(--text-muted); font-size: .82rem; }
         .fixed-fields {
             display: grid; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr);
-            gap: 16px; margin-bottom: 22px;
+            gap: 16px; margin-bottom: 18px;
         }
         .form-group { min-width: 0; }
+        .form-group.link-field { grid-column: 1 / -1; }
+        .message-panel {
+            background: rgba(30,41,59,.58); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;
+        }
+        .message-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .message-head h2 { font-size: .85rem; }
+        .message-preview {
+            background: rgba(15,23,42,.8); border: 1px solid #334155; border-radius: 7px;
+            padding: 13px 15px; color: #e2e8f0; font-size: .82rem; line-height: 1.6;
+            min-height: 48px; overflow-wrap: anywhere;
+        }
+        .message-hint { margin-top: 7px; font-size: .68rem; color: var(--text-muted); }
         label.field-label {
             display: block; font-size: .7rem; color: #60a5fa; font-weight: 700;
             text-transform: uppercase; letter-spacing: .035em; margin-bottom: 7px;
@@ -181,7 +194,7 @@
             #subscriberList { min-height: 100px; }
             main { padding: 20px 14px; overflow: visible; }
             .fixed-fields, .dynamic-fields { grid-template-columns: 1fr; }
-            .dynamic-field.full { grid-column: auto; }
+            .fixed-fields .link-field, .dynamic-field.full { grid-column: auto; }
             .checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .builder-panel, .history-panel { padding: 15px; }
         }
@@ -224,11 +237,24 @@
                     <input type="text" id="editName" oninput="syncData()">
                 </div>
                 <div class="form-group">
+                    <label class="field-label" for="editInitialReason">Motivo da solicitação</label>
+                    <input type="text" id="editInitialReason" placeholder="Ex.: lentidão na conexão" oninput="syncData()">
+                </div>
+                <div class="form-group link-field">
                     <label class="field-label" for="editLink">Link SGP</label>
                     <input type="text" id="editLink" readonly onclick="openSgpLink()" title="Clique para abrir o atendimento no SGP">
                     <div class="link-hint">Clique no link para abrir o cadastro no SGP.</div>
                 </div>
             </div>
+
+            <section class="message-panel">
+                <div class="message-head">
+                    <h2>MENSAGEM INICIAL</h2>
+                    <button class="copy-button" onclick="copyInitialMessage()">COPIAR MENSAGEM</button>
+                </div>
+                <div id="initialMessagePreview" class="message-preview">Preencha o nome e o motivo para montar a mensagem.</div>
+                <div class="message-hint">Mensagem pronta para confirmar com o assinante o motivo da solicitação.</div>
+            </section>
 
             <section class="builder-panel">
                 <div class="section-heading">
@@ -360,6 +386,7 @@
             if (!sub.nome) sub.nome = 'Novo Assinante';
             if (sub.link == null) sub.link = '';
             if (sub.warning == null) sub.warning = '';
+            if (sub.initialReason == null) sub.initialReason = '';
             if (sub.urgent == null) sub.urgent = false;
             if (sub.updatedAt == null) sub.updatedAt = sub.id;
             return sub;
@@ -486,6 +513,7 @@
 
             document.getElementById('editor').style.display = 'block';
             document.getElementById('editName').value = sub.nome || '';
+            document.getElementById('editInitialReason').value = sub.initialReason || '';
             document.getElementById('editLink').value = sub.link || '';
             document.getElementById('editResumo').value = fields.resumo || '';
             document.getElementById('editDisponibilidade').value = fields.disponibilidade || '';
@@ -508,6 +536,7 @@
             document.getElementById('editWarning').value = sub.warning || '';
             setFieldVisibility();
             updateHistory(sub);
+            updateInitialMessagePreview();
             renderList();
         }
 
@@ -516,6 +545,7 @@
             if (!sub) return;
 
             sub.nome = document.getElementById('editName').value;
+            sub.initialReason = document.getElementById('editInitialReason').value;
             sub.fields = {
                 resumo: document.getElementById('editResumo').value,
                 disponibilidade: document.getElementById('editDisponibilidade').value,
@@ -541,7 +571,44 @@
 
             setFieldVisibility();
             updateHistory(sub);
+            updateInitialMessagePreview();
             saveToDB();
+        }
+
+        function buildInitialMessage() {
+            const nomeCompleto = document.getElementById('editName').value.trim();
+            const primeiroNome = nomeCompleto.split(/\s+/)[0];
+            const motivo = document.getElementById('editInitialReason').value.trim();
+            if (!primeiroNome || !motivo) return '';
+            return `${primeiroNome}, verificamos que você efetuou a abertura de uma solicitação de suporte técnico relatando ${motivo}. Está correto?`;
+        }
+
+        function updateInitialMessagePreview() {
+            const preview = document.getElementById('initialMessagePreview');
+            if (!preview) return;
+            preview.textContent = buildInitialMessage() || 'Preencha o nome e o motivo para montar a mensagem.';
+        }
+
+        async function copyInitialMessage() {
+            const text = buildInitialMessage();
+            if (!text) {
+                alert('Preencha o nome do assinante e o motivo da solicitação.');
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(text);
+                alert('Mensagem inicial copiada!');
+            } catch (error) {
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                temp.style.position = 'fixed';
+                temp.style.opacity = '0';
+                document.body.appendChild(temp);
+                temp.select();
+                const copied = document.execCommand('copy');
+                temp.remove();
+                alert(copied ? 'Mensagem inicial copiada!' : 'Não foi possível copiar automaticamente. Selecione o texto e copie.');
+            }
         }
 
         function buildHistory(sub) {
