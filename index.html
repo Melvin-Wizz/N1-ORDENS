@@ -577,8 +577,10 @@
 
         function buildInitialMessage() {
             const nomeCompleto = document.getElementById('editName').value.trim();
-            const primeiroNome = nomeCompleto.split(/\s+/)[0];
-            const motivo = document.getElementById('editInitialReason').value.trim();
+            const nomeDigitado = nomeCompleto.split(/\s+/)[0] || '';
+            const nomeMinusculo = nomeDigitado.toLocaleLowerCase('pt-BR');
+            const primeiroNome = nomeMinusculo.charAt(0).toLocaleUpperCase('pt-BR') + nomeMinusculo.slice(1);
+            const motivo = document.getElementById('editInitialReason').value.trim().toLocaleLowerCase('pt-BR');
             if (!primeiroNome || !motivo) return '';
             return `${primeiroNome}, verificamos que você efetuou a abertura de uma solicitação de suporte técnico relatando ${motivo}. Está correto?`;
         }
